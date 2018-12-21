@@ -6,15 +6,15 @@
 # rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
 # sell copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in
 # all copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
@@ -38,8 +38,8 @@ ifaddrs._fields_ = [('ifa_next', ctypes.POINTER(ifaddrs)),
 
 libc = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True)
 
-def get_adapters():
-    
+def get_adapters(include_unconfigured=False):
+
     addr0 = addr = ctypes.POINTER(ifaddrs)()
     retval = libc.getifaddrs(ctypes.byref(addr))
     if retval != 0:
@@ -47,13 +47,13 @@ def get_adapters():
         raise OSError(eno, os.strerror(eno))
 
     ips = collections.OrderedDict()
-    
+
     def add_ip(adapter_name, ip):
         if not adapter_name in ips:
             ips[adapter_name] = shared.Adapter(adapter_name, adapter_name, [])
-        ips[adapter_name].ips.append(ip)
-    
-    
+        if ip is not None:
+            ips[adapter_name].ips.append(ip)
+
     while addr:
         name = addr[0].ifa_name
         if sys.version_info[0] > 2:
@@ -78,6 +78,9 @@ def get_adapters():
                 prefixlen = ipaddress.IPv4Network(netmaskStr).prefixlen
             ip = shared.IP(ip, prefixlen, name)
             add_ip(name, ip)
+        else:
+            if include_unconfigured:
+                add_ip(name, None)
         addr = addr[0].ifa_next
 
     libc.freeifaddrs(addr0)
